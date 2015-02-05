@@ -1,0 +1,134 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Web API ElasticSearch Query Tool</title>
+    <meta http-equiv="x-ua-compatible" content="IE=Edge" />
+</head>
+
+<body onload="initMappings()">
+    <script src="//code.jquery.com/jquery-1.11.0.min.js" type="text/javascript"></script>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
+
+    <!-- Optional theme -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap-theme.min.css">
+
+    <!-- Latest compiled and minified JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
+   
+    <div>
+        <h2>ElasticSearch JSON Documents - Search</h2>
+        <label><b>Index Name: </b></label>
+        <select id="indexSelector" onchange="initDocs()"></select>
+        <br /><br />
+        <label><b>Document Name: </b></label>
+        <select id="docSelector"></select>
+        <br /><br />
+        <label><b>From: </b></label>
+        <input type="text" id="from" size="5" value="0" />
+        <br /><br />
+        <label><b>To (leave blank for all records): </b></label>
+        <input type="text" id="size" size="5" value="10" />
+        <br /><br />
+        <label><b>ElasticSearch Query:</b></label><br />
+        <textarea id="rawQuery" cols="40" rows="10">{"match_all": {}}</textarea>
+        <br /><br />
+        <input class="input-rounded-button" type="button" value="Search" size="10" onclick="find()" />
+        <br /><br />
+        <p id="product" />
+    </div>
+    <style>
+        body {
+            margin-left: 20px;
+        }
+
+        .input-rounded-button {
+            -webkit-border-radius: 10px;
+            -moz-border-radius: 10px;
+            border-radius: 10px;
+            border: 1px solid gray;
+            padding: 0 4px 0 4px;
+            display: inline-block;
+            text-decoration: none;
+            background: #595651;
+            color: #FFFFFF;
+            cursor: pointer;
+            font: 16px sans-serif;
+        }
+
+            .input-rounded-button:hover {
+                text-decoration: none;
+                color: #ADD8E6;
+                cursor: pointer;
+                border: 1px solid #FF2B06;
+            }
+    </style>
+
+    <script>
+        //"Search" btn implementation - list out all the records found in the ElasticSearch DB
+        function find() {
+            var uri = 'datamart/rawquery';
+            var indexName = $('#indexSelector option:selected').val();
+            var id = $('#docSelector option:selected').val();
+            var from = $('#from').val();
+            var size = $('#size').val();
+            var rawQuery = $('#rawQuery').val();
+
+            if (!size) {
+                size = Math.pow(2, 31) - 1;
+            }
+            if (!from) {
+                from = 0;
+            }
+            if (!rawQuery) {
+                rawQuery = '{"match_all": {}}';
+            }
+
+            var webapiurl = window.location.host + '/datamart/getdocument?indexName=' + indexName + '&datasourcename=' + id + '&from=' + from + '&size=' + size + '&query=' + escape(rawQuery);
+
+            $('#product').text('');
+            $('#product').append('<label>Call WebAPI directly to get the data with this URL (also use the link in Excel PowerQuery):</label>');
+            $('#product').append('<a href=http://' + webapiurl + '>' + 'Your Web API Url' + '</a><br></br>');
+
+            $.post(uri + '?indexName=' + indexName + '&datasourcename=' + id + '&from=' + from + '&size=' + size, { '': rawQuery })
+                .done(function (data) {
+                    $.each(data, function (key, item) {
+                        $('#product').append('<li>' + JSON.stringify(item));
+                        $('#product').append('<br></br>');
+                    });
+                })
+                .fail(function (jqXHR, textStatus, err) {
+                    $('#product').text('Error: ' + err);
+                });
+        }
+
+        // Populate the list of ElasticSearch Document types for the seleted index, user can then select one
+        function initDocs() {
+            var uri = 'datamart/gettypes';
+            var indexName = $('#indexSelector option:selected').val();
+            $('#docSelector').empty();
+            // Add an "empty" option here, since the selection isn't required
+            $('#docSelector').append('<option>' + '' + '</option>');
+            if (indexName) {
+                $.getJSON(uri + '?indexName=' + indexName).done(function (data) {
+                    var matt = data;
+                    $.each(data, function (key, item) {
+                        $('#docSelector').append('<option>' + item + '</option>');
+                    });
+                });
+            }
+        }
+
+        // Populate the list of ElasticeSearch INDICES so that the user can then select one
+        function initMappings() {
+            var uri = 'datamart/getindices';
+            $.getJSON(uri).done(function (data) {
+                $.each(data, function (key, item) {
+                    $('#indexSelector').append('<option>' + item + '</option>');
+                });
+                initDocs(); // now initialize the document types for the "Default" selected index
+            });
+        }
+    </script>
+</body>
+</html>
